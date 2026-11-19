@@ -1,6 +1,9 @@
 <?php
 declare(strict_types=1);
 
+// MySQL sensor timestamps are recorded in Singapore local time; parse/display them consistently.
+date_default_timezone_set('Asia/Singapore');
+
 /**
  * Local connection settings. Configure these as environment variables in your
  * PHP server, or edit the fallback values for your XAMPP installation.

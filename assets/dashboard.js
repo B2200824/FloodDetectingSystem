@@ -19,7 +19,7 @@
 
   function renderChart() {
     const requested = Number($('#chartRange')?.value || 18);
-    const source = allReadings.slice(-requested);
+    const source = allReadings.slice().sort((a, b) => new Date(String(a.recorded_at).replace(' ', 'T')) - new Date(String(b.recorded_at).replace(' ', 'T'))).slice(-requested);
     const svg = $('#waterChart');
     const path = $('#chartPath');
     const area = $('#chartArea');
@@ -65,6 +65,7 @@
     set('#temperature', `${number(current.temperature_c)}°C`);
     set('#humidity', `${number(current.humidity_pct, 0)}%`);
     set('#lastUpdated', currentDate.toLocaleTimeString([], {hour12:false}));
+    set('#waterUpdatedAt', currentDate.toLocaleTimeString([], {hour12:false}));
     const fill = $('#levelFill');
     if (fill) fill.style.width = `${percentage}%`;
     const danger = Number(config.dangerDepthCm) || 22;
@@ -129,6 +130,43 @@
     setTimeout(() => el.remove(), 2600);
   }
 
+  function updateScenario(level, rainy) {
+    const warning = Number(data.warningDepth) || 18;
+    const danger = Number(data.dangerDepth) || 22;
+    const value = Math.min(Number(data.maxDepth) || 25, Math.max(0, Number(level) || 0));
+    const status = value >= danger ? 'danger' : value >= warning || rainy ? 'warning' : 'normal';
+    const output = $('#scenarioLevelValue');
+    if (output) output.textContent = value.toFixed(1);
+    const result = $('#scenarioResult');
+    if (result) result.dataset.risk = status;
+    const titles = {normal:'Low flood risk',warning:'Elevated flood risk',danger:'Critical flood risk'};
+    const advice = status === 'danger' ? 'Water is above the danger threshold. Prepare an evacuation response.' : status === 'warning' ? 'Keep monitoring. Rain or rising water is nearing the warning threshold.' : 'Conditions are below the warning level.';
+    const risk = $('#scenarioRisk');
+    if (risk) risk.textContent = titles[status];
+    const note = $('#scenarioAdvice');
+    if (note) note.textContent = advice;
+    const rain = $('#scenarioRain');
+    if (rain) rain.textContent = rainy ? '☂ Rain active' : '☀ Dry';
+    const slider = $('#scenarioLevel');
+    if (slider) slider.style.setProperty('--scenario-fill', `${value / (Number(data.maxDepth) || 25) * 100}%`);
+  }
+
+  const scenarioSlider = $('#scenarioLevel');
+  scenarioSlider?.addEventListener('input', () => updateScenario(scenarioSlider.value, $('#scenarioResult')?.dataset.rain === 'true'));
+  document.querySelectorAll('.scenario-preset').forEach(button => button.addEventListener('click', () => {
+    const slider = $('#scenarioLevel');
+    const result = $('#scenarioResult');
+    const rainy = button.dataset.rain === '1';
+    if (slider) slider.value = button.dataset.level || 0;
+    if (result) result.dataset.rain = String(rainy);
+    document.querySelectorAll('.scenario-preset').forEach(item => item.classList.toggle('is-selected', item === button));
+    updateScenario(slider?.value, rainy);
+  }));
+  if ($('#scenarioResult')) {
+    $('#scenarioResult').dataset.rain = 'false';
+    updateScenario(scenarioSlider?.value, false);
+  }
+
   async function refresh(manual = false) {
     const button = $('#refreshButton');
     if (button) button.disabled = true;
@@ -160,28 +198,8 @@
     }
   }
 
-  function csvDownload() {
-    if (data.demo || !data.dbOnline || !allReadings.length) { notify('Connect MySQL and your sensors to export recorded readings.'); return; }
-    const columns = ['id','recorded_at','water_level_cm','distance_cm','temperature_c','humidity_pct','rain_detected','rain_probability_pct','alert_level'];
-    const csv = [columns.join(','), ...allReadings.map(row => columns.map(key => {
-      const value = row[key] ?? '';
-      return `"${String(value).replaceAll('"','""')}"`;
-    }).join(','))].join('\r\n');
-    const url = URL.createObjectURL(new Blob(['\ufeff',csv],{type:'text/csv;charset=utf-8'}));
-    const anchor = document.createElement('a'); anchor.href = url;
-    anchor.download = `flood-readings-${new Date().toISOString().slice(0,10)}.csv`;
-    anchor.click(); URL.revokeObjectURL(url);
-  }
-
   const range = $('#chartRange');
   if (range) range.addEventListener('change', renderChart);
-  $('#refreshButton')?.addEventListener('click', () => refresh(true));
-  $('#downloadButton')?.addEventListener('click', csvDownload);
-  $('#viewAllButton')?.addEventListener('click', () => {
-    const readings = allReadings.length ? allReadings : [];
-    if (readings.length) { renderTable(readings, data.demo ? readings.length : readings.length); $('#readings')?.scrollIntoView({behavior:'smooth',block:'center'}); }
-    else notify('Start the MySQL database and send readings to view your history.');
-  });
   $('#menuButton')?.addEventListener('click', () => $('#sidebar')?.classList.toggle('sidebar-open'));
   document.addEventListener('click', (event) => { if (innerWidth <= 650 && !event.target.closest('#sidebar,#menuButton')) $('#sidebar')?.classList.remove('sidebar-open'); });
   setClock(); setInterval(setClock, 1000);
