@@ -17,6 +17,7 @@ Content-Type: application/json
   "temperature_c": 29.4,
   "humidity_pct": 82,
   "rain_detected": true,
+  "rain_sensor_value": 4095,
   "rain_probability_pct": 65,
   "alert_level": "warning"
 }</pre><p>Required: <code>water_level_cm</code>. Rain probability, rain detection, and the temperature and humidity fields accept values from the ESP32. Supported alerts are <code>normal</code>, <code>watch</code>, <code>warning</code>, and <code>danger</code>. The dashboard calculates water-level rise rate and estimated time to danger from your recorded samples.</p><p>Set <code>INGEST_API_KEY</code> in <code>config.php</code> if you want to authenticate writes from your LAN.</p></section>

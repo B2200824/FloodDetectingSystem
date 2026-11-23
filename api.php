@@ -26,11 +26,11 @@ try {
     if ($incremental) {
         $sinceId = filter_var($_GET['since_id'], FILTER_VALIDATE_INT);
         if ($sinceId === false || $sinceId < 0) throw new InvalidArgumentException('since_id must be a non-negative integer.');
-        $statement = $pdo->prepare('SELECT id, water_level_cm, distance_cm, temperature_c, humidity_pct, rain_detected, rain_probability_pct, alert_level, recorded_at FROM sensor_readings WHERE id > ? ORDER BY id ASC LIMIT 200');
+        $statement = $pdo->prepare('SELECT id, water_level_cm, distance_cm, temperature_c, humidity_pct, rain_detected, rain_sensor_value, rain_probability_pct, alert_level, recorded_at FROM sensor_readings WHERE id > ? ORDER BY id ASC LIMIT 200');
         $statement->execute([$sinceId]);
         $readings = $statement->fetchAll();
     } else {
-        $readings = $pdo->query('SELECT id, water_level_cm, distance_cm, temperature_c, humidity_pct, rain_detected, rain_probability_pct, alert_level, recorded_at FROM sensor_readings ORDER BY recorded_at DESC, id DESC LIMIT 1000')->fetchAll();
+        $readings = $pdo->query('SELECT id, water_level_cm, distance_cm, temperature_c, humidity_pct, rain_detected, rain_sensor_value, rain_probability_pct, alert_level, recorded_at FROM sensor_readings ORDER BY recorded_at DESC, id DESC LIMIT 1000')->fetchAll();
     }
     $total = $incremental ? null : (int)$pdo->query('SELECT COUNT(*) FROM sensor_readings')->fetchColumn();
     echo json_encode(['ok' => true, 'database_online' => true, 'total' => $total, 'readings' => $readings], JSON_THROW_ON_ERROR);

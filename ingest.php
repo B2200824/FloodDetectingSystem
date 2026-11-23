@@ -44,9 +44,13 @@ try {
         throw new InvalidArgumentException('alert_level must be normal, watch, warning or danger.');
     }
     $rain = filter_var($input['rain_detected'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
+    $rainSensorValue = $nullableNumber('rain_sensor_value');
+    if ($rainSensorValue !== null && ($rainSensorValue < 0 || $rainSensorValue > 4095 || floor($rainSensorValue) !== $rainSensorValue)) {
+        throw new InvalidArgumentException('rain_sensor_value must be a whole number between 0 and 4095.');
+    }
 
     $statement = database()->prepare(
-        'INSERT INTO sensor_readings (water_level_cm, distance_cm, temperature_c, humidity_pct, rain_detected, rain_probability_pct, alert_level) VALUES (?, ?, ?, ?, ?, ?, ?)'
+        'INSERT INTO sensor_readings (water_level_cm, distance_cm, temperature_c, humidity_pct, rain_detected, rain_sensor_value, rain_probability_pct, alert_level) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
     );
     $statement->execute([
         $water,
@@ -54,6 +58,7 @@ try {
         $nullableNumber('temperature_c'),
         $nullableNumber('humidity_pct'),
         $rain,
+        $rainSensorValue,
         $nullableNumber('rain_probability_pct'),
         $alert,
     ]);

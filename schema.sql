@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS sensor_readings (
   temperature_c DECIMAL(5,2) NULL,
   humidity_pct DECIMAL(5,2) NULL,
   rain_detected TINYINT(1) NOT NULL DEFAULT 0,
+  rain_sensor_value SMALLINT UNSIGNED NULL COMMENT 'Raw analog rain sensor value, typically 0-4095',
   rain_probability_pct DECIMAL(5,2) NULL,
   alert_level ENUM('normal','watch','warning','danger') NOT NULL DEFAULT 'normal',
   recorded_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

@@ -10,7 +10,7 @@
   let apiConnected = Boolean(data.dbOnline);
   let busy = false;
   const $ = (selector) => document.querySelector(selector);
-  const n = (value, digits = 1) => value === null || value === '' || !Number.isFinite(Number(value)) ? '—' : Number(value).toFixed(digits);
+  const n = (value, digits = 1) => value === null || value === '' || !Number.isFinite(Number(value)) ? '\u2014' : Number(value).toFixed(digits);
   const safe = (value) => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const date = (value) => new Date(String(value).replace(' ', 'T'));
   const stamp = (value) => date(value).toLocaleTimeString([], {hour12:false});
@@ -27,14 +27,14 @@
     body.innerHTML = rows.map(row => {
       const rain = !!Number(row.rain_detected);
       const alert = ['normal','watch','warning','danger'].includes(String(row.alert_level)) ? String(row.alert_level) : 'normal';
-      return `<tr class="${Number(row.id) === latestId ? 'climate-new-row' : ''}"><td class="timestamp-cell"><span class="row-led ${alert==='danger'?'row-led-danger':alert==='warning'?'row-led-warning':''}"></span><span>${safe(dateLabel(row.recorded_at))}</span><span class="timestamp-time">${safe(stamp(row.recorded_at))}</span></td><td><strong class="table-water-value">${n(row.water_level_cm)}<span> cm</span></strong></td><td>${n(row.distance_cm)}<span class="unit-label"> cm</span></td><td>${n(row.temperature_c)}<span class="unit-label"> °C</span></td><td>${n(row.humidity_pct,0)}<span class="unit-label">%</span></td><td><span class="table-rain ${rain?'rain-active':''}"><span class="rain-led"></span>${rain?'Detected':'None'}</span></td><td><span class="status-pill status-${alert}"><span></span>${alert.charAt(0).toUpperCase()+alert.slice(1)}</span></td></tr>`;
+      return `<tr class="${Number(row.id) === latestId ? 'climate-new-row' : ''}"><td class="timestamp-cell"><span class="row-led ${alert==='danger'?'row-led-danger':alert==='warning'?'row-led-warning':''}"></span><span>${safe(dateLabel(row.recorded_at))}</span><span class="timestamp-time">${safe(stamp(row.recorded_at))}</span></td><td><strong class="table-water-value">${n(row.water_level_cm)}<span> cm</span></strong></td><td>${n(row.distance_cm)}<span class="unit-label"> cm</span></td><td>${n(row.temperature_c)}<span class="unit-label"> &deg;C</span></td><td>${n(row.humidity_pct,0)}<span class="unit-label">%</span></td><td><span class="table-rain ${rain?'rain-active':''}"><span class="rain-led"></span>${rain?'Rain':'No rain'}</span></td><td><span class="status-pill status-${alert}"><span></span>${alert.charAt(0).toUpperCase()+alert.slice(1)}</span></td></tr>`;
     }).join('');
     const latest = rows[0];
     $('#climateShown').textContent = String(rows.length);
     if (latest) {
-      $('#climateTemperature').innerHTML = `${n(latest.temperature_c)}<span>°C</span>`;
+      $('#climateTemperature').innerHTML = `${n(latest.temperature_c)}<span>&deg;C</span>`;
       $('#climateHumidity').innerHTML = `${n(latest.humidity_pct,0)}<span>%</span>`;
-      $('#climateRain').textContent = Number(latest.rain_detected) ? 'Detected' : 'No rain';
+      $('#climateRain').textContent = Number(latest.rain_detected) ? 'Rain detected' : 'No rain';
       $('#climateTimestamp').textContent = stamp(latest.recorded_at);
       $('#climateDate').textContent = dateLabel(latest.recorded_at);
       $('#climateFooterTime').textContent = String(latest.recorded_at);

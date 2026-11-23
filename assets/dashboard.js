@@ -11,6 +11,7 @@
   const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const number = (value, digits = 1) => value == null || !Number.isFinite(Number(value)) ? '—' : Number(value).toFixed(digits);
   const timeLabel = (date) => new Intl.DateTimeFormat(undefined, {hour:'2-digit',minute:'2-digit',hour12:false}).format(date);
+  const parseReadingTime = (row) => new Date(String(row.recorded_at).replace(' ', 'T')).getTime();
 
   function setClock() {
     const el = $('#clock');
@@ -18,19 +19,23 @@
   }
 
   function renderChart() {
-    const requested = Number($('#chartRange')?.value || 18);
-    const source = allReadings.slice().sort((a, b) => new Date(String(a.recorded_at).replace(' ', 'T')) - new Date(String(b.recorded_at).replace(' ', 'T'))).slice(-requested);
+    const rangeMinutes = Number($('#chartRange')?.value || 60);
+    const ordered = allReadings.slice().sort((a, b) => parseReadingTime(a) - parseReadingTime(b));
+    const endTime = ordered.length ? parseReadingTime(ordered.at(-1)) : Date.now();
+    const duration = rangeMinutes * 60000;
+    const startTime = endTime - duration;
+    const source = ordered.filter(row => parseReadingTime(row) >= startTime && parseReadingTime(row) <= endTime);
     const svg = $('#waterChart');
     const path = $('#chartPath');
     const area = $('#chartArea');
     const points = $('#chartPoints');
     const tickEl = $('#chartTimes');
     if (!svg || !path || !area || !points || !tickEl) return;
-    const max = Number(data.maxDepth) || 25;
+    const max = Number(data.maxDepth) || 20;
     // Match the chart axis and warning/danger threshold positions to the configured depth.
     const top = max;
-    const xy = source.map((row, i) => ({
-      x: source.length < 2 ? 450 : 8 + i * (884 / (source.length - 1)),
+    const xy = source.map(row => ({
+      x: 8 + Math.max(0, Math.min(duration, parseReadingTime(row) - startTime)) / duration * 884,
       y: 8 + (1 - Math.min(top, Math.max(0, Number(row.water_level_cm) || 0)) / top) * 196,
       row
     }));
@@ -38,56 +43,78 @@
     path.setAttribute('d', line);
     area.setAttribute('d', xy.length ? `${line} L ${xy.at(-1).x.toFixed(2)} 220 L ${xy[0].x.toFixed(2)} 220 Z` : '');
     points.innerHTML = xy.map((p, i) => `<circle class="${i === xy.length - 1 ? 'chart-point chart-point-latest' : 'chart-point'}" cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="${i === xy.length - 1 ? 4 : 2.6}"><title>${escapeHtml(new Date(String(p.row.recorded_at).replace(' ', 'T')).toLocaleString())}: ${number(p.row.water_level_cm)} cm</title></circle>`).join('');
-    const ticks = [0, Math.floor((source.length - 1) / 2), Math.max(0, source.length - 1)];
-    tickEl.innerHTML = ticks.map(i => {
-      const r = source[i];
-      return `<span>${r ? escapeHtml(timeLabel(new Date(String(r.recorded_at).replace(' ', 'T')))) : '—'}</span>`;
-    }).join('');
+    const ticks = [startTime, startTime + duration / 2, endTime];
+    const formatTick = timestamp => rangeMinutes === 1
+      ? new Intl.DateTimeFormat(undefined, {minute:'2-digit',second:'2-digit',hour12:false}).format(new Date(timestamp))
+      : timeLabel(new Date(timestamp));
+    tickEl.innerHTML = ticks.map(timestamp => `<span>${escapeHtml(formatTick(timestamp))}</span>`).join('');
     const latest = source.at(-1);
     svg.setAttribute('aria-label', latest ? `Latest water level ${number(latest.water_level_cm)} centimeters; ${source.length} sensor readings displayed` : 'No sensor readings available');
   }
 
   function refreshVisibleReading(readings) {
     const current = readings[0];
-    const previous = readings[1];
     if (!current) return;
     const currentDate = new Date(String(current.recorded_at).replace(' ', 'T'));
-    const previousDate = previous ? new Date(String(previous.recorded_at).replace(' ', 'T')) : currentDate;
-    const minutes = Math.max((currentDate - previousDate) / 60000, 1 / 60);
     const level = Number(current.water_level_cm) || 0;
-    const rate = previous ? (level - Number(previous.water_level_cm)) / minutes : 0;
-    const limit = Number(config.maxDepthCm) || 25;
+    const windowStart = currentDate.getTime() - 30000;
+    const recent = readings.filter(row => {
+      const timestamp = new Date(String(row.recorded_at).replace(' ', 'T')).getTime();
+      return timestamp >= windowStart && timestamp <= currentDate.getTime();
+    });
+    const oldest = recent.at(-1) || current;
+    const oldestDate = new Date(String(oldest.recorded_at).replace(' ', 'T'));
+    const elapsedMinutes = (currentDate.getTime() - oldestDate.getTime()) / 60000;
+    const trendRate = elapsedMinutes > 0 ? (level - Number(oldest.water_level_cm)) / elapsedMinutes : 0;
+    const limit = Number(config.maxDepthCm) || 20;
     const percentage = Math.min(100, Math.max(0, level / limit * 100));
     const set = (selector, value) => { const el = $(selector); if (el) el.textContent = value; };
     set('#waterLevel', number(level));
-    set('#riseRate', number(rate, 2));
     set('#levelPercent', `${Math.round(percentage)}%`);
-    set('#temperature', `${number(current.temperature_c)}°C`);
+    set('#temperature', `${number(current.temperature_c)}\u00b0C`);
     set('#humidity', `${number(current.humidity_pct, 0)}%`);
     set('#lastUpdated', currentDate.toLocaleTimeString([], {hour12:false}));
     set('#waterUpdatedAt', currentDate.toLocaleTimeString([], {hour12:false}));
     const fill = $('#levelFill');
     if (fill) fill.style.width = `${percentage}%`;
-    const danger = Number(config.dangerDepthCm) || 22;
-    const warning = Number(config.warningDepthCm) || 18;
-    const eta = rate > .001 ? Math.max(0, (danger - level) / rate) : null;
-    set('#timeToDanger', eta === null ? '—' : eta < 60 ? `${Math.round(eta)} min` : `${Math.floor(eta / 60)}h ${Math.round(eta % 60)}m`);
-    const trend = $('#levelTrend');
-    if (trend) {
-      trend.className = `trend-badge ${rate > .01 ? 'trend-up' : rate < -.01 ? 'trend-down' : 'trend-steady'}`;
-      trend.textContent = rate > .01 ? `↗ ${number(rate)} cm / min` : rate < -.01 ? `↘ ${number(rate)} cm / min` : 'Steady';
-    }
-    let status = String(current.alert_level || 'normal').toLowerCase();
-    if (rate > .12 && level >= warning) status = 'danger';
-    else if (level >= danger) status = 'danger';
-    else if (level >= warning && status !== 'danger') status = 'warning';
+    const rainShift = Number(config.rainShiftCm) || 2;
+    const liveRain = !!Number(current.rain_detected);
+    const activeAlert = (Number(config.alertDepthCm) || 9) - (liveRain ? rainShift : 0);
+    const activeWarning = (Number(config.warningDepthCm) || 13) - (liveRain ? rainShift : 0);
+    const activeDanger = (Number(config.dangerDepthCm) || 17) - (liveRain ? rainShift : 0);
+    const thresholds = [
+      ['alertMarker', 'alertThreshold', activeAlert, 'Alert'],
+      ['warningMarker', 'warningThreshold', activeWarning, 'Warning'],
+      ['dangerMarker', 'dangerThreshold', activeDanger, 'Danger']
+    ];
+    thresholds.forEach(([markerId, labelId, depth, label]) => {
+      const marker = document.getElementById(markerId);
+      if (marker) marker.style.left = `${depth / limit * 100}%`;
+      const thresholdLabel = document.getElementById(labelId);
+      if (thresholdLabel) thresholdLabel.innerHTML = `${label} <strong>${depth} cm</strong>`;
+    });
+    const chartThresholds = [
+      ['alertThresholdLine', activeAlert, 'ALERT'],
+      ['warningThresholdLine', activeWarning, 'WARNING'],
+      ['dangerThresholdLine', activeDanger, 'DANGER']
+    ];
+    chartThresholds.forEach(([lineId, depth, label]) => {
+      const line = document.getElementById(lineId);
+      if (!line) return;
+      line.style.bottom = `${depth / limit * 100}%`;
+      const caption = line.querySelector('span');
+      if (caption) caption.textContent = `${label} · ${depth} CM`;
+    });
+    const steady = Math.abs(trendRate) < .5;
+    const reportedStatus = String(current.alert_level || 'normal').toLowerCase();
+    let status = reportedStatus;
     if (!['normal','watch','warning','danger'].includes(status)) status = 'normal';
     const titles = {normal:'All systems normal',watch:'Conditions to monitor',warning:'Rising water · Warning',danger:'Critical flood risk'};
     const banner = $('#alertBanner');
     if (banner) banner.className = `alert-banner alert-${status}`;
     set('#alertTitle', titles[status]);
     set('#alertPill', status.toUpperCase());
-    set('#alertCaption', status === 'normal' ? 'Sensor readings are within normal operating ranges.' : `Water level ${rate >= 0 ? 'increasing' : 'decreasing'} · Last reading ${currentDate.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',hour12:false})}`);
+    set('#alertCaption', status === 'normal' ? 'Sensor readings are within normal operating ranges.' : `Water level ${steady ? 'stable' : trendRate > 0 ? 'increasing' : 'decreasing'} · Last reading ${currentDate.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',hour12:false})}`);
     const rain = document.querySelector('.rain-status');
     if (rain) {
       const active = !!Number(current.rain_detected);
@@ -112,7 +139,7 @@
       const rate = previous ? (Number(row.water_level_cm) - Number(previous.water_level_cm)) / Math.max((dt-priorDt)/60000,1/60) : 0;
       const status = ['normal','watch','warning','danger'].includes(String(row.alert_level)) ? row.alert_level : 'normal';
       const rain = !!Number(row.rain_detected);
-      return `<tr><td class="timestamp-cell"><span class="row-led ${status==='warning'?'row-led-warning':status==='danger'?'row-led-danger':''}"></span><span>${escapeHtml(dt.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}))}</span><span class="timestamp-time">${escapeHtml(dt.toLocaleTimeString([], {hour12:false}))}</span></td><td><strong class="table-water-value">${number(row.water_level_cm)}<span> cm</span></strong></td><td class="rate-cell ${rate>.01?'rate-positive':rate<-.01?'rate-negative':''}">${Math.abs(rate)>.001?`${rate>0?'↗':'↘'} ${number(Math.abs(rate),2)} <span>cm/m</span>`:'—'}</td><td><span class="table-rain ${rain?'rain-active':''}"><span class="rain-led"></span>${rain?'Detected':'None'}</span></td><td>${number(row.temperature_c)}<span class="unit-label">°C</span></td><td>${number(row.humidity_pct,0)}<span class="unit-label">%</span></td><td><span class="status-pill status-${status}"><span></span>${status.charAt(0).toUpperCase()+status.slice(1)}</span></td></tr>`;
+      return `<tr><td class="timestamp-cell"><span class="row-led ${status==='warning'?'row-led-warning':status==='danger'?'row-led-danger':''}"></span><span>${escapeHtml(dt.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}))}</span><span class="timestamp-time">${escapeHtml(dt.toLocaleTimeString([], {hour12:false}))}</span></td><td><strong class="table-water-value">${number(row.water_level_cm)}<span> cm</span></strong></td><td class="rate-cell ${rate>.01?'rate-positive':rate<-.01?'rate-negative':''}">${Math.abs(rate)>.001?`${rate>0?'&#8599;':'↘'} ${number(Math.abs(rate),2)} <span>cm/m</span>`:'—'}</td><td><span class="table-rain ${rain?'rain-active':''}"><span class="rain-led"></span>${rain?'Detected':'None'}</span></td><td>${number(row.temperature_c)}<span class="unit-label">\u00b0C</span></td><td>${number(row.humidity_pct,0)}<span class="unit-label">%</span></td><td><span class="status-pill status-${status}"><span></span>${status.charAt(0).toUpperCase()+status.slice(1)}</span></td></tr>`;
     }).join('');
     const count = $('#readingCount');
     if (count) count.textContent = String(total);
@@ -131,16 +158,18 @@
   }
 
   function updateScenario(level, rainy) {
-    const warning = Number(data.warningDepth) || 18;
-    const danger = Number(data.dangerDepth) || 22;
-    const value = Math.min(Number(data.maxDepth) || 25, Math.max(0, Number(level) || 0));
-    const status = value >= danger ? 'danger' : value >= warning || rainy ? 'warning' : 'normal';
+    const rainShift = rainy ? Number(data.rainShift) || 2 : 0;
+    const alert = (Number(data.alertDepth) || 9) - rainShift;
+    const warning = (Number(data.warningDepth) || 13) - rainShift;
+    const danger = (Number(data.dangerDepth) || 17) - rainShift;
+    const value = Math.min(Number(data.maxDepth) || 20, Math.max(0, Number(level) || 0));
+    const status = value >= danger ? 'danger' : value >= warning ? 'warning' : value >= alert ? 'alert' : 'normal';
     const output = $('#scenarioLevelValue');
     if (output) output.textContent = value.toFixed(1);
     const result = $('#scenarioResult');
     if (result) result.dataset.risk = status;
-    const titles = {normal:'Low flood risk',warning:'Elevated flood risk',danger:'Critical flood risk'};
-    const advice = status === 'danger' ? 'Water is above the danger threshold. Prepare an evacuation response.' : status === 'warning' ? 'Keep monitoring. Rain or rising water is nearing the warning threshold.' : 'Conditions are below the warning level.';
+    const titles = {normal:'Low flood risk',alert:'Alert stage',warning:'Warning stage',danger:'Danger stage'};
+    const advice = status === 'danger' ? `Water is at or above the ${danger} cm danger threshold. Prepare an evacuation response.` : status === 'warning' ? `Water is at or above the ${warning} cm warning threshold. Keep monitoring closely.` : status === 'alert' ? `Water is at or above the ${alert} cm alert threshold. Watch the readings.` : 'Conditions are below the alert threshold.';
     const risk = $('#scenarioRisk');
     if (risk) risk.textContent = titles[status];
     const note = $('#scenarioAdvice');
@@ -148,7 +177,7 @@
     const rain = $('#scenarioRain');
     if (rain) rain.textContent = rainy ? '☂ Rain active' : '☀ Dry';
     const slider = $('#scenarioLevel');
-    if (slider) slider.style.setProperty('--scenario-fill', `${value / (Number(data.maxDepth) || 25) * 100}%`);
+    if (slider) slider.style.setProperty('--scenario-fill', `${value / (Number(data.maxDepth) || 20) * 100}%`);
   }
 
   const scenarioSlider = $('#scenarioLevel');
@@ -175,7 +204,12 @@
       if (!response.ok) throw new Error('No live database connection');
       const result = await response.json();
       if (!result.ok || !Array.isArray(result.readings)) throw new Error(result.error || 'Invalid server response');
-      allReadings = result.readings;
+      if ($('#chartRange')) {
+        const byId = new Map([...allReadings, ...result.readings].map(row => [String(row.id), row]));
+        allReadings = [...byId.values()].sort((a, b) => parseReadingTime(a) - parseReadingTime(b)).slice(-5000);
+      } else {
+        allReadings = result.readings;
+      }
       if (allReadings.length) {
         data.demo = false;
         if (!data.dbOnline) location.reload();
@@ -183,11 +217,12 @@
         const pill = $('.local-pill');
         if (pill) pill.innerHTML = '<span class="status-led is-online"></span> Local server';
         const source = $('.data-source');
-        if (source) source.innerHTML = '<span class="database-icon">◈</span> MySQL · Local database';
+        if (source) source.innerHTML = '<span class="database-icon">◈</span> MySQL &middot; Local database';
         const demoNotice = document.querySelector('.demo-notice');
         if (demoNotice) demoNotice.remove();
-        refreshVisibleReading(allReadings);
-        renderTable(allReadings, result.total);
+        const newestFirst = $('#chartRange') ? allReadings.slice().reverse() : allReadings;
+        refreshVisibleReading(newestFirst);
+        renderTable(newestFirst, result.total);
         renderChart();
         if (manual) notify('Sensor readings refreshed.');
       } else if (manual) notify('No sensor readings have been recorded yet.');

@@ -17,6 +17,23 @@ const DB_TABLE = 'sensor_readings';
 // Optional shared secret for POST /ingest.php. Leave empty on trusted LANs.
 const INGEST_API_KEY = '';
 
+/**
+ * Blynk credentials belong in config.local.php (ignored by Git) or the
+ * BLYNK_AUTH_TOKEN environment variable, never in browser-side code.
+ */
+function blynkAuthToken(): string
+{
+    $token = getenv('BLYNK_AUTH_TOKEN');
+    if (is_string($token) && $token !== '') return $token;
+
+    $localConfig = __DIR__ . '/config.local.php';
+    if (!is_file($localConfig)) return '';
+    $settings = require $localConfig;
+    return is_array($settings) && is_string($settings['blynk_auth_token'] ?? null)
+        ? trim($settings['blynk_auth_token'])
+        : '';
+}
+
 function database(): PDO
 {
     static $pdo;
@@ -31,6 +48,11 @@ function database(): PDO
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false,
         ]);
+        // Upgrade databases created before raw rain sensor values were stored.
+        $hasRainValue = $pdo->query("SHOW COLUMNS FROM `" . DB_TABLE . "` LIKE 'rain_sensor_value'")->fetch();
+        if (!$hasRainValue) {
+            $pdo->exec('ALTER TABLE `' . DB_TABLE . '` ADD COLUMN rain_sensor_value SMALLINT UNSIGNED NULL AFTER rain_detected');
+        }
     }
     return $pdo;
 }
