@@ -70,5 +70,5 @@ try {
 } catch (Throwable $error) {
     error_log('Flood monitor ingest failed: ' . $error->getMessage());
     http_response_code(503);
-    echo json_encode(['error' => 'Database unavailable. Check config.php and import ../database/schema.sql.']);
+    echo json_encode(['error' => 'Database unavailable. Check config.php and import schema.sql.']);
 }

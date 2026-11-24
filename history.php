@@ -33,7 +33,7 @@ try {
     $rows = $query->fetchAll();
 } catch (Throwable $exception) {
     error_log('Flood monitor history unavailable: ' . $exception->getMessage());
-    $error = 'MySQL is unavailable. Start MySQL and import ../database/schema.sql to view saved readings.';
+    $error = 'MySQL is unavailable. Start MySQL and import schema.sql to view saved readings.';
     $pages = 1;
 }
 $from = $total ? ($page - 1) * $pageSize + 1 : 0;
@@ -44,7 +44,7 @@ $h = static fn (mixed $value): string => htmlspecialchars((string)$value, ENT_QU
 $fmt = static fn (mixed $value, int $digits = 1): string => is_numeric($value) ? number_format((float)$value, $digits) : '&mdash;';
 ?>
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#0b1119"><title>Reading history | FloodWatch</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="../frontend/dashboard.css"><link rel="stylesheet" href="../frontend/scenario.css"><link rel="stylesheet" href="../frontend/history.css"></head>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#0b1119"><title>Reading history | FloodWatch</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="assets/dashboard.css"><link rel="stylesheet" href="assets/scenario.css"><link rel="stylesheet" href="assets/history.css"></head>
 <body><div class="layout">
   <aside class="sidebar"><a href="index.php#overview" class="brand"><span class="brand-mark"><svg viewBox="0 0 28 28" fill="none" aria-hidden="true"><path d="M14 3C11 8 6 13.4 6 18a8 8 0 0 0 16 0c0-4.6-5-10-8-15Z" stroke="currentColor" stroke-width="1.8"/><path d="M10 19c.4 2 1.6 3 3.5 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span><span>Flood<span class="brand-light">Watch</span><small>LOCAL MONITORING</small></span></a>
     <div class="nav-label">MONITORING</div><nav class="navigation" aria-label="Main navigation"><a class="nav-item" href="index.php#overview"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 20 20"><rect x="2.5" y="2.5" width="6" height="6" rx="1"/><rect x="11.5" y="2.5" width="6" height="6" rx="1"/><rect x="2.5" y="11.5" width="6" height="6" rx="1"/><rect x="11.5" y="11.5" width="6" height="6" rx="1"/></svg></span> Overview</a><a class="nav-item" href="water-levels.php"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M3 12c1.4 0 1.4-4 2.8-4s1.4 6 2.8 6 1.4-9 2.8-9 1.4 11 2.8 11 1.4-4 2.8-4"/></svg></span> Water levels</a><a class="nav-item" href="climate.php"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M5 13.5a3 3 0 0 1 .3-6 4.7 4.7 0 0 1 9 1.1 2.5 2.5 0 0 1 .2 5H5Z"/><path d="m7 16-.7 1.5m4-1.5-.7 1.5m4-1.5-.7 1.5"/></svg></span> Rain &amp; climate</a><a class="nav-item active" href="history.php"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M7 4h10M7 10h10M7 16h10"/><circle cx="3.5" cy="4" r=".7"/><circle cx="3.5" cy="10" r=".7"/><circle cx="3.5" cy="16" r=".7"/></svg></span> Reading history <span class="nav-dot"></span></a></nav>
@@ -61,4 +61,4 @@ $fmt = static fn (mixed $value, int $digits = 1): string => is_numeric($value) ?
       </section><footer class="page-footer"><span><span class="footer-led <?= $rows ? 'is-online' : 'is-offline' ?>"></span><?= $rows ? 'History loaded from MySQL' : 'No saved readings available' ?></span><span class="footer-right">FloodWatch &middot; Local monitoring</span></footer>
     </div>
   </main>
-</div><script src="../frontend/device-status.js" defer></script><script src="../frontend/history.js" defer></script></body></html>
+</div><script src="assets/device-status.js" defer></script><script src="assets/history.js" defer></script></body></html>

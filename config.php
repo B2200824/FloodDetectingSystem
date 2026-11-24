@@ -14,7 +14,7 @@ const DB_USER = 'root';
 const DB_PASSWORD = '';
 const DB_TABLE = 'sensor_readings';
 
-// Optional shared secret for POST /backend/ingest.php. Leave empty on trusted LANs.
+// Optional shared secret for POST /ingest.php. Leave empty on trusted LANs.
 const INGEST_API_KEY = '';
 
 /**

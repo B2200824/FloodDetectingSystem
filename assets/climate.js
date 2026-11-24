@@ -55,7 +55,7 @@
     if (busy || document.hidden) return;
     busy = true;
     try {
-      const response = await fetch(`../backend/api.php?since_id=${encodeURIComponent(latestId)}`, {headers:{Accept:'application/json'},cache:'no-store'});
+      const response = await fetch(`api.php?since_id=${encodeURIComponent(latestId)}`, {headers:{Accept:'application/json'},cache:'no-store'});
       if (!response.ok) throw new Error('Server unavailable');
       const result = await response.json();
       if (!result.ok || !Array.isArray(result.readings)) throw new Error('Invalid server response');
