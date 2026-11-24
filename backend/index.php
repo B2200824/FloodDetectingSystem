@@ -31,7 +31,7 @@ try {
     }
 } catch (Throwable $error) {
     error_log('Flood monitor dashboard database unavailable: ' . $error->getMessage());
-    $databaseError = 'MySQL is not connected. Start MySQL and import schema.sql to view your readings.';
+    $databaseError = 'MySQL is not connected. Start MySQL and import ../database/schema.sql to view your readings.';
     $serverOnline = false;
 }
 
@@ -92,10 +92,10 @@ $initials = 'FM';
   <title>FloodWatch &middot; Monitoring dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;450;500;550;600;650;700;750;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/dashboard.css">
-  <link rel="stylesheet" href="assets/scenario.css">
-  <link rel="stylesheet" href="assets/history.css">
-  <link rel="stylesheet" href="assets/overview.css?v=<?= (int)filemtime(__DIR__ . '/assets/overview.css') ?>">
+  <link rel="stylesheet" href="../frontend/dashboard.css">
+  <link rel="stylesheet" href="../frontend/scenario.css">
+  <link rel="stylesheet" href="../frontend/history.css">
+  <link rel="stylesheet" href="../frontend/overview.css?v=<?= (int)filemtime(__DIR__ . '/../frontend/overview.css') ?>">
   <script>window.FLOOD_CONFIG = <?= json_encode($config, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;</script>
 </head>
 <body>
@@ -139,5 +139,5 @@ $initials = 'FM';
   </main>
 </div>
 <script id="dashboard-data" type="application/json"><?= json_encode(['readings' => $chartRows, 'labels' => $chartTimes, 'demo' => $demo, 'dbOnline' => $dbOnline, 'maxDepth' => $config['maxDepthCm'], 'alertDepth' => $config['alertDepthCm'], 'warningDepth' => $config['warningDepthCm'], 'dangerDepth' => $config['dangerDepthCm'], 'rainShift' => $config['rainShiftCm']], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?></script>
-<script src="assets/dashboard.js?v=<?= (int)filemtime(__DIR__ . '/assets/dashboard.js') ?>" defer></script><script src="assets/alarm-control.js?v=<?= (int)filemtime(__DIR__ . '/assets/alarm-control.js') ?>" defer></script><script src="assets/device-status.js" defer></script>
+<script src="../frontend/dashboard.js?v=<?= (int)filemtime(__DIR__ . '/../frontend/dashboard.js') ?>" defer></script><script src="../frontend/alarm-control.js?v=<?= (int)filemtime(__DIR__ . '/../frontend/alarm-control.js') ?>" defer></script><script src="../frontend/device-status.js" defer></script>
 </body></html>

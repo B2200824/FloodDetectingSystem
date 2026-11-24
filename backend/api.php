@@ -40,5 +40,5 @@ try {
 } catch (Throwable $error) {
     error_log('Flood monitor API request failed: ' . $error->getMessage());
     http_response_code(503);
-    echo json_encode(['ok' => false, 'database_online' => false, 'error' => 'MySQL is unavailable. Import schema.sql and check config.php.']);
+    echo json_encode(['ok' => false, 'database_online' => false, 'error' => 'MySQL is unavailable. Import ../database/schema.sql and check config.php.']);
 }
